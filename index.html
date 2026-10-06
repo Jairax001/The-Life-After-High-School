@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life After High School: Hardcore</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            transition: background-image 0.8s ease-in-out; 
+        }
+        
+        #game-container {
+            max-width: 700px;
+            width: 100%;
+            background-color: rgba(18, 18, 18, 0.92); 
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid #333;
+            position: relative;
+        }
+
+        /* RPG STAT BARS UI */
+        .stats-panel {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #444;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .stat-row:last-child { margin-bottom: 0; }
+
+        .stat-label {
+            width: 100px;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .bar-bg {
+            flex-grow: 1;
+            height: 12px;
+            background: #222;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #444;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .fill-wealth { background: linear-gradient(90deg, #1b5e20, #00e676); }
+        .fill-energy { background: linear-gradient(90deg, #e65100, #ff9800); }
+        .fill-sanity { background: linear-gradient(90deg, #01579b, #00b0ff); }
+
+        .stat-val {
+            width: 45px;
+            text-align: right;
+            font-weight: 900;
+            font-size: 0.95em;
+            margin-left: 10px;
+        }
+
+        /* TEXT AND CONTROLS */
+        #story-text {
+            font-size: 1.15em;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            min-height: 140px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            cursor: pointer; 
+            padding: 10px;
+            border-left: 3px solid #4fc3f7;
+            background: linear-gradient(90deg, rgba(79, 195, 247, 0.05) 0%, transparent 100%);
+        }
+        
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 15px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            color: #aaa;
+            border: 1px solid #444;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .restart-btn:hover { border-color: #ff5252; color: #ff5252; }
+        
+        /* DYNAMIC CHOICES */
+        #choices-container { display: flex; flex-direction: column; gap: 10px; }
+
+        .choice-btn {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 14px 18px;
+            background-color: #1a1a1a;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 1em;
+            line-height: 1.4;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .choice-btn:hover:not(:disabled) {
+            border-color: #4fc3f7;
+            background-color: #242424;
+            transform: translateX(4px);
+            box-shadow: -4px 0px 10px rgba(79, 195, 247, 0.2);
+        }
+
+        /* LOCKED OUT CHOICES UI */
+        .choice-btn:disabled {
+            background-color: #111;
+            color: #555;
+            border-color: #333;
+            cursor: not-allowed;
+            font-style: italic;
+        }
+
+        .req-tags {
+            display: flex;
+            gap: 8px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .tag { padding: 2px 6px; border-radius: 4px; background: #333; }
+        .tag-wealth { color: #00e676; }
+        .tag-energy { color: #ff9800; }
+        .tag-sanity { color: #00b0ff; }
+        .tag-danger { color: #ff5252; background: rgba(255, 82, 82, 0.1); border: 1px solid #ff5252;}
+
+        /* UTILS */
+        .game-over { color: #ff5252; font-weight: bold; }
+        .victory { color: #69f0ae; font-weight: bold; }
+        .neutral { color: #ffd54f; font-weight: bold; }
+        
+        /* SCREEN SHAKE ANIMATION FOR DAMAGE */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake { animation: shake 0.4s; }
+
+        /* MODAL */
+        #modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-box {
+            background-color: #111; padding: 25px; border-radius: 10px; border: 1px solid #444; width: 90%; max-width: 450px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="controls-bar">
+        <div>
+            <button class="nav-btn" onclick="openModal('save')">💾 Save (Hardcore)</button>
+            <button class="nav-btn" onclick="openModal('load')">📂 Load</button>
+        </div>
+        <button class="nav-btn restart-btn" onclick="resetGame()">↺ End Life</button>
+    </div>
+
+    <div class="stats-panel">
+        <div class="stat-row">
+            <div class="stat-label" style="color: #a5d6a7;">💰 Wealth</div>
+            <div class="bar-bg"><div id="bar-wealth" class="bar-fill fill-wealth"></div></div>
+            <div id="val-wealth" class="stat-val" style="color: #00e676;">50</div>
+        </div>
+        <div class="stat-row">
+            <div class="stat-label" style="color: #ffcc80;">⚡ Energy</div>
+            <div class="bar-bg"><div id="bar-energy" class="bar-fill fill-energy"></div></div>
+            <div id="val-energy" class="stat-val" style="color: #ff9800;">100</div>
+        </div>
+        <div class="stat-row">
+            <div class="stat-label" style="color: #81d4fa;">🧠 Sanity</div>
+            <div class="bar-bg"><div id="bar-sanity" class="bar-fill fill-sanity"></div></div>
+            <div id="val-sanity" class="stat-val" style="color: #00b0ff;">100</div>
+        </div>
+    </div>
+    
+    <div id="story-text" title="Click to skip typing">Loading game...</div>
+    <div id="choices-container"></div>
+</div>
+
+<div id="modal-overlay">
+    <div class="modal-box">
+        <h2 id="modal-title" style="margin-top:0; color:#4fc3f7;">Save Game</h2>
+        <div id="modal-slots" style="display:flex; flex-direction:column; gap:10px;"></div>
+        <button class="nav-btn" style="margin-top: 20px; width: 100%; padding:12px;" onclick="closeModal()">Cancel</button>
+    </div>
+</div>
+
+<script>
+    // --- ENGINE CORE ---
+    let typingTimer; 
+    let isTyping = false; 
+    let currentSceneId = 'start'; 
+
+    // PLAYER STATE (Ranges 0 to 100)
+    let player = {
+        wealth: 40,  // Starts with low pocket money
+        energy: 100, // Young and fresh
+        sanity: 90   // Mostly sane
+    };
+
+    // Images
+    const imgBedroom = "url('https://images.unsplash.com/photo-1555696958-c5049b866f6f?w=1600')";
+    const imgStudy = "url('https://images.unsplash.com/photo-1456406644174-8ddd4cd52a06?w=1600')";
+    const imgTech = "url('https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1600')";
+    const imgGameOver = "url('https://images.unsplash.com/photo-1508614999368-9260051292e5?w=1600')";
+    const imgVictory = "url('https://images.unsplash.com/photo-1519834785169-98be25ec3f84?w=1600')";
+    const imgHospital = "url('https://images.unsplash.com/photo-1538108149393-cecf8abaec34?w=1600')";
+
+    // --- IMMERSIVE STORY DATA WITH RESOURCE MECHANICS ---
+    /* 
+       How choices work now:
+       - effect: { wealth: +10, energy: -20 } -> Applies when clicked.
+       - req: { wealth: 50 } -> The button is disabled if wealth < 50.
+    */
+    const storyData = {
+        "start": {
+            text: "You are sitting in your humid rented room. The ceiling fan clicks rhythmically. You've just finished high school. Your parents have given you a small allowance (Wealth: 40), but they expect a return on investment soon. What is your first move in the real world?",
+            image: imgBedroom,
+            choices: [
+                { 
+                    text: "Buy central exam textbooks and study solo.", 
+                    next: "ssc_solo", 
+                    effect: { wealth: -10, sanity: -10 },
+                    tags: "-10💰 -10🧠"
+                },
+                { 
+                    text: "Enroll in premium SSC coaching classes in Delhi.", 
+                    next: "ssc_delhi", 
+                    effect: { wealth: -40, energy: -20 },
+                    req: { wealth: 40 },
+                    tags: "-40💰 -20⚡"
+                },
+                { 
+                    text: "Buy a cheap laptop and learn to code in your room.", 
+                    next: "tech_start", 
+                    effect: { wealth: -30, energy: -10 },
+                    req: { wealth: 30 },
+                    tags: "-30💰 -10⚡"
+                },
+                { 
+                    text: "Do nothing. Sleep all day and avoid thinking about the future.", 
+                    next: "start_lazy", 
+                    effect: { energy: +10, sanity: +10, wealth: -10 },
+                    tags: "+10⚡ -10💰"
+                }
+            ]
+        },
+
+        // --- PROCRASTINATION PENALTY ---
+        "start_lazy": {
+            text: "You sleep for a month. Your parents get angry and cut your allowance. You feel rested, but the pressure to do something is mounting.",
+            image: imgBedroom,
+            choices: [
+                { text: "Fine. Buy the SSC books.", next: "ssc_solo", effect: { wealth: -10 }, req: { wealth: 10 }, tags: "-10💰" },
+                { text: "Try to learn coding for free on your phone.", next: "tech_phone", effect: { energy: -30, sanity: -20 }, tags: "-30⚡ -20🧠" }
+            ]
+        },
+
+        // --- PATH: COMPETITIVE EXAMS ---
+        "ssc_solo": {
+            text: "You are preparing for the SSC CGL entirely alone. It is a grueling, lonely process. Your friends invite you out for a weekend trip to Manali. It will cost money, but staying home is driving you insane.",
+            image: imgStudy,
+            choices: [
+                { text: "Go to Manali to destress.", next: "ssc_trip", effect: { wealth: -20, sanity: +40, energy: -10 }, req: { wealth: 20 }, tags: "-20💰 +40🧠" },
+                { text: "Lock the door. Grind 14 hours a day.", next: "ssc_grind", effect: { sanity: -40, energy: -30 }, tags: "-40🧠 -30⚡" }
+            ]
+        },
+        "ssc_trip": {
+            text: "The trip was amazing, but you lost momentum. You failed the SSC Prelims by 4 marks. Relatives are starting to gossip about your failure.",
+            image: imgBedroom,
+            choices: [
+                { text: "Swallow your pride. Apply for a lower-tier data entry job to survive.", next: "clerk_end", effect: { sanity: -20, wealth: +30 }, tags: "+30💰 -20🧠" },
+                { text: "Take a harsh bank loan to buy premium coaching for your second attempt.", next: "ssc_delhi", effect: { wealth: +50, sanity: -30 }, tags: "Loan ⚠️ -30🧠" }
+            ]
+        },
+        "ssc_grind": {
+            text: "Your mental health is in tatters, but your accuracy is flawless. You reach the final stage: the UPSC Mains. You have 3 months to memorize the entire Physics syllabus.",
+            image: imgStudy,
+            choices: [
+                { text: "Buy expensive memory supplements and hire a tutor.", next: "upsc_win", effect: { wealth: -30, energy: -20 }, req: { wealth: 30 }, tags: "-30💰" },
+                { text: "Rely purely on sleep deprivation and coffee.", next: "upsc_gamble", effect: { energy: -60, sanity: -30 }, tags: "-60⚡ -30🧠" }
+            ]
+        },
+        "upsc_gamble": {
+            text: "You sit for the 5-day Mains exam. On day 3, your vision blurs. Your hands shake. You look at the Physics paper, and the equations turn into meaningless squiggles.",
+            image: imgGameOver,
+            choices: [
+                { text: "Keep writing...", next: "upsc_gamble_result", effect: { energy: -20 }, tags: "-20⚡" }
+            ]
+        },
+        "upsc_gamble_result": {
+            text: "You barely scrape a passing grade, but you fail the final interview because you are a nervous wreck. <span class='neutral'>ENDING: THE VETERAN.</span> You become a teacher at a coaching institute, molding future officers.",
+            image: imgStudy,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset" }]
+        },
+        "upsc_win": {
+            text: "<span class='victory'>TRUE ENDING: THE BUREAUCRAT.</span> You clear the exams with flying colors. You are now an officer. The brutal years of sacrifice finally paid off.",
+            image: imgVictory,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset" }]
+        },
+
+        // --- DELHI COACHING PATH ---
+        "ssc_delhi": {
+            text: "You move to a tiny, cramped PG in Delhi. Rent is high, and the food is terrible. A major exam date is announced, but a rumor spreads that the paper has been leaked. Do you buy the leaked paper to guarantee success?",
+            image: imgStudy,
+            choices: [
+                { text: "Buy the leaked paper. (High Risk)", next: "ssc_cheat", effect: { wealth: -30, sanity: -40 }, req: { wealth: 30 }, tags: "-30💰 -40🧠 ⚠️" },
+                { text: "Trust your hard work. Study honestly.", next: "ssc_grind", effect: { energy: -30, sanity: -10 }, tags: "-30⚡" }
+            ]
+        },
+        "ssc_cheat": {
+            text: "The CBI raids the coaching centers. The exam is cancelled. Your money is gone, and you narrowly escape arrest. The stress gives you a massive panic attack.",
+            image: imgGameOver,
+            choices: [
+                { text: "Face the music.", next: "clerk_end", effect: { sanity: -50, energy: -30 }, tags: "-50🧠 -30⚡" }
+            ]
+        },
+        "clerk_end": {
+            text: "<span class='neutral'>ENDING: THE SURVIVOR.</span> Your grand dreams are crushed, but you find a quiet job in a back-office. It pays the rent, and you finally have peace.",
+            image: imgBedroom,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset" }]
+        },
+
+        // --- PATH: TECH / FREELANCE ---
+        "tech_start": {
+            text: "You stare at terminal windows all night. You learn JavaScript. You get a freelance offer to build a website for a local restaurant, but the deadline is insane.",
+            image: imgTech,
+            choices: [
+                { text: "Accept the job. Pull three all-nighters.", next: "tech_freelance_win", effect: { energy: -50, wealth: +40, sanity: -20 }, tags: "-50⚡ +40💰" },
+                { text: "Reject it. Protect your health and study slowly.", next: "tech_slow", effect: { energy: +10, wealth: -10 }, tags: "+10⚡ -10💰" }
+            ]
+        },
+        "tech_phone": {
+            text: "Trying to code complex algorithms on a tiny mobile screen ruins your eyesight and patience. You realize you absolutely need hardware.",
+            image: imgTech,
+            choices: [
+                { text: "Beg parents for laptop money.", next: "tech_start", effect: { wealth: +30, sanity: -30 }, tags: "+30💰 -30🧠" }
+            ]
+        },
+        "tech_freelance_win": {
+            text: "You deliver the site. You are exhausted but rich. You now have enough portfolio work to apply for real tech jobs.",
+            image: imgTech,
+            choices: [
+                { text: "Apply for a corporate Data Analyst job.", next: "tech_corporate", effect: { sanity: -10 }, tags: "Safe" },
+                { text: "Use your wealth to launch your own indie startup.", next: "tech_startup", effect: { wealth: -50, energy: -40 }, req: { wealth: 50 }, tags: "-50💰 -40⚡" }
+            ]
+        },
+        "tech_corporate": {
+            text: "<span class='victory'>ENDING: THE SENIOR DEV.</span> You climb the corporate ladder. You wear noise-canceling headphones, drink expensive coffee, and live comfortably in Bengaluru.",
+            image: imgVictory,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset" }]
+        },
+        "tech_startup": {
+            text: "You pour everything into your startup. After two years of eating instant noodles and pitching to investors, an American firm acquires your app. <span class='victory'>TRUE ENDING: SILICON FOUNDER.</span> You are wealthy beyond imagination.",
+            image: imgVictory,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset" }]
+        },
+        "tech_slow": {
+            text: "You learn at a healthy pace. However, AI drops a massive update that automates junior web design. You can't find freelance work.",
+            image: imgBedroom,
+            choices: [
+                { text: "Pivot back to central government exams for safety.", next: "ssc_solo", effect: { sanity: -20 }, tags: "-20🧠" },
+                { text: "Take a menial data entry job to survive.", next: "clerk_end", effect: { wealth: +20, sanity: -10 }, tags: "+20💰" }
+            ]
+        },
+
+        // --- HARDCORE GAME OVER STATES (Triggered automatically by stats) ---
+        "game_over_wealth": {
+            text: "<span class='game-over'>BANKRUPTCY.</span> Your bank account hits zero. You are evicted from your room. Unable to pay for food or resources, you are forced to move back to your village in defeat. The journey is over.",
+            image: imgGameOver,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset Stats" }]
+        },
+        "game_over_energy": {
+            text: "<span class='game-over'>HOSPITALIZED.</span> You pushed your physical body past its breaking point. You collapse mid-task and wake up in a hospital with an IV drip. It will take years to physically recover. Your career plans are finished.",
+            image: imgHospital,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset Stats" }]
+        },
+        "game_over_sanity": {
+            text: "<span class='game-over'>MENTAL BREAKDOWN.</span> The pressure, the expectations, and the isolation finally snap your mind. You fall into a deep depression, completely unable to open a book or face a screen. You drop out of the race.",
+            image: imgBedroom,
+            choices: [{ text: "Restart Life", next: "start", effect: { wealth: 40, energy: 100, sanity: 90 }, tags: "Reset Stats" }]
+        }
+    };
+
+    // --- GAME ENGINE LOGIC ---
+    function updateStatsUI() {
+        // Clamp stats between 0 and 100
+        player.wealth = Math.max(0, Math.min(100, player.wealth));
+        player.energy = Math.max(0, Math.min(100, player.energy));
+        player.sanity = Math.max(0, Math.min(100, player.sanity));
+
+        document.getElementById('val-wealth').innerText = player.wealth;
+        document.getElementById('val-energy').innerText = player.energy;
+        document.getElementById('val-sanity').innerText = player.sanity;
+
+        document.getElementById('bar-wealth').style.width = player.wealth + '%';
+        document.getElementById('bar-energy').style.width = player.energy + '%';
+        document.getElementById('bar-sanity').style.width = player.sanity + '%';
+
+        // Color coding for danger zones
+        document.getElementById('val-wealth').style.color = player.wealth < 20 ? '#ff5252' : '#00e676';
+        document.getElementById('val-energy').style.color = player.energy < 20 ? '#ff5252' : '#ff9800';
+        document.getElementById('val-sanity').style.color = player.sanity < 20 ? '#ff5252' : '#00b0ff';
+    }
+
+    function checkDeathStates() {
+        if (player.wealth <= 0) return 'game_over_wealth';
+        if (player.energy <= 0) return 'game_over_energy';
+        if (player.sanity <= 0) return 'game_over_sanity';
+        return null;
+    }
+
+    function applyEffect(effect) {
+        if (!effect) return false;
+        let tookDamage = false;
+        
+        // Only trigger screen shake if a stat is reduced
+        if (effect.wealth < 0) { player.wealth += effect.wealth; tookDamage = true; }
+        else if (effect.wealth > 0) player.wealth += effect.wealth;
+        
+        if (effect.energy < 0) { player.energy += effect.energy; tookDamage = true; }
+        else if (effect.energy > 0) player.energy += effect.energy;
+        
+        if (effect.sanity < 0) { player.sanity += effect.sanity; tookDamage = true; }
+        else if (effect.sanity > 0) player.sanity += effect.sanity;
+
+        // Visual feedback for damage
+        if (tookDamage) {
+            const container = document.getElementById('game-container');
+            container.classList.remove('shake');
+            void container.offsetWidth; // trigger reflow
+            container.classList.add('shake');
+        }
+
+        updateStatsUI();
+    }
+
+    function renderScene(sceneId) {
+        clearTimeout(typingTimer); 
+        currentSceneId = sceneId; 
+        
+        // Hardcore Save State memory structure
+        const saveState = { scene: sceneId, pStats: player };
+        localStorage.setItem('lifeAfterHighSchool_autosave', JSON.stringify(saveState));
+        
+        let scene = storyData[sceneId];
+        
+        // Intercept death states before rendering the chosen scene
+        let deathScene = checkDeathStates();
+        if (deathScene && !sceneId.startsWith('game_over') && sceneId !== 'start') {
+            sceneId = deathScene;
+            scene = storyData[sceneId];
+            currentSceneId = sceneId;
+        }
+
+        isTyping = true; 
+        updateStatsUI();
+
+        if (scene.image) {
+            document.body.style.backgroundImage = scene.image;
+        }
+
+        const choicesContainer = document.getElementById('choices-container');
+        choicesContainer.innerHTML = '';
+
+        function showChoices() {
+            scene.choices.forEach(choice => {
+                const button = document.createElement('button');
+                
+                // Determine if player can afford the choice
+                let canAfford = true;
+                if (choice.req) {
+                    if (choice.req.wealth && player.wealth < choice.req.wealth) canAfford = false;
+                    if (choice.req.energy && player.energy < choice.req.energy) canAfford = false;
+                    if (choice.req.sanity && player.sanity < choice.req.sanity) canAfford = false;
+                }
+
+                button.className = 'choice-btn';
+                if (!canAfford) button.disabled = true;
+
+                // Build button interior: Left side text, Right side requirements tags
+                let tagHTML = "";
+                if (choice.tags) {
+                    // Quick coloring for tags based on emojis/text
+                    let tagsArray = choice.tags.split(' ');
+                    tagsArray.forEach(t => {
+                        if(t.includes('💰')) tagHTML += `<span class="tag tag-wealth">${t}</span>`;
+                        else if(t.includes('⚡')) tagHTML += `<span class="tag tag-energy">${t}</span>`;
+                        else if(t.includes('🧠')) tagHTML += `<span class="tag tag-sanity">${t}</span>`;
+                        else if(t.includes('⚠️')) tagHTML += `<span class="tag tag-danger">${t}</span>`;
+                        else tagHTML += `<span class="tag">${t}</span>`;
+                    });
+                }
+
+                button.innerHTML = `<span>${choice.text}</span> <div class="req-tags">${tagHTML}</div>`;
+                
+                button.onclick = () => {
+                    applyEffect(choice.effect);
+                    // Special rule: if starting over, reset to absolute start ignoring damage taken on click
+                    if (choice.next === 'start' && choice.effect) {
+                        player.wealth = 40; player.energy = 100; player.sanity = 90;
+                        updateStatsUI();
+                    }
+                    renderScene(choice.next);
+                };
+                choicesContainer.appendChild(button);
+            });
+        }
+
+        const storyElement = document.getElementById('story-text');
+        storyElement.innerHTML = ''; 
+        
+        const textToType = scene.text;
+        let charIndex = 0;
+        let currentHTML = "";
+
+        function typeWriter() {
+            if (!isTyping) return; 
+            if (charIndex < textToType.length) {
+                if (textToType.charAt(charIndex) === '<') {
+                    let tag = "";
+                    while (textToType.charAt(charIndex) !== '>' && charIndex < textToType.length) {
+                        tag += textToType.charAt(charIndex);
+                        charIndex++;
+                    }
+                    tag += '>'; 
+                    currentHTML += tag;
+                    charIndex++;
+                    typeWriter(); 
+                } else {
+                    currentHTML += textToType.charAt(charIndex);
+                    charIndex++;
+                    storyElement.innerHTML = currentHTML;
+                    typingTimer = setTimeout(typeWriter, 12); // Slightly faster typing for pacing
+                }
+            } else {
+                isTyping = false; 
+                showChoices();
+            }
+        }
+        
+        typeWriter();
+
+        document.getElementById('story-text').onclick = function(e) {
+            if (isTyping) {
+                isTyping = false;
+                clearTimeout(typingTimer);
+                storyElement.innerHTML = textToType; 
+                showChoices(); 
+            }
+        };
+    }
+
+    // --- HARDCORE SAVE SYSTEM (Stores Stats too) ---
+    function openModal(mode) {
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const slotContainer = document.getElementById('modal-slots');
+        
+        modal.style.display = 'flex'; 
+        title.innerText = mode === 'save' ? 'Save Game (3 Max Per Life)' : 'Load Game';
+        slotContainer.innerHTML = ''; 
+
+        let filledCount = 0;
+
+        for(let i = 1; i <= 3; i++) {
+            let savedDataRaw = localStorage.getItem('lifeAfterHighSchool_slot' + i);
+            let btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            
+            let textPreview = "";
+            let savedData = null;
+
+            if(savedDataRaw) {
+                savedData = JSON.parse(savedDataRaw);
+                if (storyData[savedData.scene]) {
+                    textPreview = storyData[savedData.scene].text.replace(/<[^>]+>/g, '').substring(0, 30) + '...';
+                    filledCount++;
+                }
+            }
+
+            if (mode === 'save') {
+                if (savedData) {
+                    btn.innerHTML = `<span>🔒 Slot ${i}: ${textPreview}</span> <span>[W:${savedData.pStats.wealth} E:${savedData.pStats.energy}]</span>`;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.onclick = () => { alert("This slot is already filled! You cannot overwrite it in this lifetime."); };
+                } else {
+                    btn.innerHTML = `<span>Slot ${i}: [ Empty - Click to Save ]</span>`;
+                    btn.onclick = () => {
+                        const stateToSave = { scene: currentSceneId, pStats: player };
+                        localStorage.setItem('lifeAfterHighSchool_slot' + i, JSON.stringify(stateToSave));
+                        alert(`Progress locked into Slot ${i}!`);
+                        closeModal();
+                    };
+                }
+            } else { 
+                if(savedData) {
+                    btn.innerHTML = `<span>Slot ${i}: ${textPreview}</span> <span>[W:${savedData.pStats.wealth} E:${savedData.pStats.energy}]</span>`;
+                    btn.onclick = () => {
+                        player = savedData.pStats;
+                        renderScene(savedData.scene);
+                        closeModal();
+                    };
+                } else {
+                    btn.innerHTML = `<span>Slot ${i}: [ Empty ]</span>`;
+                    btn.style.opacity = '0.5';
+                    btn.onclick = () => { alert("This slot is empty!"); };
+                }
+            }
+            slotContainer.appendChild(btn);
+        }
+    }
+
+    function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+    function resetGame() {
+        if(confirm("End current life? This wipes your auto-save and clears the 3 hardcore slots. You will start entirely fresh.")) {
+            localStorage.removeItem('lifeAfterHighSchool_autosave');
+            localStorage.removeItem('lifeAfterHighSchool_slot1');
+            localStorage.removeItem('lifeAfterHighSchool_slot2');
+            localStorage.removeItem('lifeAfterHighSchool_slot3');
+            player = { wealth: 40, energy: 100, sanity: 90 };
+            renderScene('start');
+        }
+    }
+
+    window.onload = () => {
+        const savedRaw = localStorage.getItem('lifeAfterHighSchool_autosave');
+        if (savedRaw) {
+            const savedData = JSON.parse(savedRaw);
+            if (storyData[savedData.scene]) {
+                player = savedData.pStats;
+                renderScene(savedData.scene);
+                return;
+            }
+        }
+        updateStatsUI();
+        renderScene('start');
+    };
+</script>
+
+</body>
+</html>
